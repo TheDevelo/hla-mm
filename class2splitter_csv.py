@@ -1,22 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct  3 10:29:19 2017
-name: class2gvh_hvg.py
-@author: changliu
+name: class2splitter_csv.py
+@author: changliu & Robert Fuchs
 This script reads in output from HLAmatchmaker to quantify the number of mismatched epitopes in the graft-versus-host (GVH) and host-versus-graft (HVG) directions respectively.
 input files: class2 analysis result from Hmm, tab 4 and tab 5 exported as class2rec.csv and class2don.csv respective.
-output: class2gvh_hvg --> need to pivot using the type of ep-mm.
-Note: 
-1. no need to delete all the blank rows at the end of each input file. 
-2. NEW: dose of mm is considered with this algorithm. (if a host-specific ep appears twice, counted twice)
-3. NEW: ep crossreactive between two loci is not counted (for example 26L is shared by DQ and DR)
-*4. for the don file: DRab=[16:41]+[76:101], DRot=[41:76]+[101:136], DQBab=[256:286]+[315:345], DQBot=[286:315]+[345:374]
-*5. for the rec file: DRab=[17:42]+[77:102] , DRot=[42:77]+[102:137], DQBab=[257:287]+[316:346], DQBot=[287:316]+[346:375]
-*6. ABC are gene names, "ab" means antibody confirmed epitope, "ot" means other.
-Validation: 
-Categorical counts add up to the total ep mm count in each direction. 
-HvG directed mmEp count correlates very well between original Hmm and modified Hmm. correlation coefficient = 0.9960510417
-(CORREL function), as a measure of the linear correlation of the two data sets.
+output: class2output.csv
 """
 
 from __future__ import division
@@ -26,90 +15,80 @@ import re
 
 don=open('class2don.csv','r')
 rec=open('class2rec.csv','r')
-out=open('class2gvh_hvg','w')
-out.write('type of ep mm'+'\t'+'case row#'+'\t'+'Ep mm count'+'\n') #column titles
+out=open('class2output.csv','w')
 
 DDRab=[]
 DDRot=[]
+DDWab=[]
+DDWot=[]
 DDQab=[]
 DDQot=[]
+DDQAab=[]
+DDQAot=[]
+DDPab=[]
+DDPot=[]
 DonEp=[]
 for line in don:
     if line.split(',')[3].startswith('DRB1'):
-        line=line.upper()
-        DonEp.append(line.split(',')[16:])
-        DDRab.append(line.split(',')[16:41]+line.split(',')[76:101])
-        DDRot.append(line.split(',')[41:76]+line.split(',')[101:136])
-        DDQab.append(line.split(',')[256:286]+line.split(',')[315:345])
-        DDQot.append(line.split(',')[286:315]+line.split(',')[345:374])
+        data=line.upper().split(',')
+        DonEp.append(data[16:])
+        DDRab.append(data[16:41]+data[76:101])
+        DDRot.append(data[41:76]+data[101:136])
+        DDWab.append(data[136:161]+data[196:221])
+        DDWot.append(data[161:196]+data[221:256])
+        DDQab.append(data[256:286]+data[315:345])
+        DDQot.append(data[286:315]+data[345:374])
+        DDQAab.append(data[374:394]+data[414:434])
+        DDQAot.append(data[394:414]+data[434:454])
+        DDPab.append(data[454:469]+data[484:499])
+        DDPot.append(data[469:484]+data[499:514])
         
 RDRab=[]
 RDRot=[]
+RDWab=[]
+RDWot=[]
 RDQab=[]
 RDQot=[]
+RDQAab=[]
+RDQAot=[]
+RDPab=[]
+RDPot=[]
 RecEp=[]
 for line in rec: 
     if line.split(',')[4].startswith('DRB1'): 
-        line=line.upper()
-        RecEp.append(line.split(',')[17:])
-        RDRab.append(line.split(',')[17:42]+line.split(',')[77:102])
-        RDRot.append(line.split(',')[42:77]+line.split(',')[102:137])
-        RDQab.append(line.split(',')[257:287]+line.split(',')[316:346])
-        RDQot.append(line.split(',')[287:316]+line.split(',')[346:375])
+        data=line.upper().split(',')
+        RecEp.append(data[17:])
+        RDRab.append(data[17:42]+data[77:102])
+        RDRot.append(data[42:77]+data[102:137])
+        RDWab.append(data[137:162]+data[197:222])
+        RDWot.append(data[162:197]+data[222:257])
+        RDQab.append(data[257:287]+data[316:346])
+        RDQot.append(data[287:316]+data[346:375])
+        RDQAab.append(data[375:395]+data[415:435])
+        RDQAot.append(data[395:415]+data[435:455])
+        RDPab.append(data[455:470]+data[485:500])
+        RDPot.append(data[470:485]+data[500:515])
 
-catego=['DRab','DRot','DQab','DQot']
-
-#TOTAL GVH MM COUNT (counting ep in recipient, but not in donor)
-i=0
-for case in RecEp:
-    gvhcount=0
-    for ep in case:
-        if ep.strip() not in map(str.strip, DonEp[i]):
-            gvhcount=gvhcount+1
-    #column 1: type of mm, 2: case row#, 3: graft-versus-host Ep mm             
-    out.write('GvH total (in host, not in donor)'+'\t'+str(i+1)+'\t'+str(gvhcount)+'\n')
-    i=i+1
-
-
-#DIFFERENT CATEGORIES OF GVH MM COUNT
-j=0        
-for REpType in [RDRab,RDRot,RDQab,RDQot]: #four blocks of results DRab --> DRot --> DQab --> DQot
-    i=0
-    for case in REpType:
+# Write column titles
+out.write("Patient Row,GVH Total,GVH DRab,GVH DRot,GVH DWab,GVH DWot,GVH DQab,GVH DQot,GVH DQAab,GVH DQAot,GVH DPab,GVH DPot,HVG Total,HVG DRab,HVG DRot,HVG DWab,HVG DWot,HVG DQab,HVG DQot,HVG DQAab,HVG DQAot,HVG DPab,HVG DPot\n")
+# Output data as a CSV file
+for i in range(len(RecEp)):
+    out.write(str(i+1))
+    for REpType in [RecEp,RDRab,RDRot,RDWab,RDWot,RDQab,RDQot,RDQAab,RDQAot,RDPab,RDPot]:
+        case=REpType[i]
         reccount=0
         for ep in case:
             if ep.strip() not in map(str.strip, DonEp[i]):
-                reccount=reccount+1
-        #columns 1: case row#, 2: HVG mm, 3: GVH mm, 4: neither
-        out.write('GvH '+catego[j]+'\t'+str(i+1)+'\t'+str(reccount)+'\n') 
-        i=i+1
-    j=j+1
-
-#TOTAL HVG MM COUNT (counting ep in donor, but not in recipient)
-i=0
-for case in DonEp:
-    hvgcount=0
-    for ep in case:
-        if ep.strip() not in map(str.strip, RecEp[i]):
-            hvgcount=hvgcount+1
-    #column 1: type of mm, 2: case row#, 3: host-versus-graft Ep mm             
-    out.write('HvG total (in donor, not in host)'+'\t'+str(i+1)+'\t'+str(hvgcount)+'\n')
-    i=i+1
-
-
-#DIFFERENT CATEGORIES OF HVG MM COUNT
-j=0
-for DEpType in [DDRab,DDRot,DDQab,DDQot]: #four blocks of results DRab --> DRot --> DQab --> DQot
-    i=0
-    for case in DEpType:
+                reccount=reccount+1        
+        out.write(','+str(reccount))
+    for DEpType in [DonEp,DDRab,DDRot,DDWab,DDWot,DDQab,DDQot,DDQAab,DDQAot,DDPab,DDPot]:
+        case=DEpType[i]
         doncount=0
         for ep in case:
             if ep.strip() not in map(str.strip, RecEp[i]):
                 doncount=doncount+1
-        #columns 1: case row#, 2: HVG mm, 3: GVH mm, 4: neither
-        out.write('HvG '+catego[j]+'\t'+str(i+1)+'\t'+str(doncount)+'\n') 
-        i=i+1
-    j=j+1
+        out.write(','+str(doncount))
+    out.write('\n')
         
 don.close()
 rec.close()
